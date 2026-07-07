@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>목에 걸린 사탕</title>
+    <!-- 구글 폰트 Jua 로드 (둥글둥글한 사탕 느낌의 서체) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #canvas {
+            display: block;
+            touch-action: none;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let width, height;
+        let particles = [];
+        // 마우스 감지 반경을 80으로 조정
+        const mouse = { x: -1000, y: -1000, radius: 80 };
+        // 알록달록하고 상큼한 사탕 테마의 색상 팔레트
+        const colors = ['#FF4B91', '#FF7676', '#FFCD4B', '#FF8E8F', '#4ba3ff', '#45FFCA'];
+
+        class Particle {
+            constructor(tx, ty) {
+                this.originX = tx;
+                this.originY = ty;
+                
+                // 처음 생성 시 화면 곳곳에서 흩어져 날아와 글씨를 이루는 연출
+                this.x = Math.random() * window.innerWidth;
+                this.y = Math.random() * window.innerHeight;
+                
+                this.vx = 0;
+                this.vy = 0;
+                
+                // 촘촘한 배치를 위해 동그라미 입자 반지름을 1.5로 축소
+                this.radius = 1.5;
+                
+                // 제자리(호버 전)에서는 검정색, 흩어지면 컬러풀하게 변하도록 설정
+                this.baseColor = { r: 0, g: 0, b: 0 };
+                const randomColor = colors[Math.floor(Math.random() * colors.length)];
+                this.targetColor = this.hexToRgb(randomColor);
+                this.color = { r: 0, g: 0, b: 0 };
+                
+                // 스프링 및 마찰 계수 (자연스럽고 탄성 있는 흩어짐 구현)
+                this.friction = 0.88;
+                this.ease = 0.08;
+            }
+
+            hexToRgb(hex) {
+                const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                } : { r: 0, g: 0, b: 0 };
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgb(${Math.round(this.color.r)}, ${Math.round(this.color.g)}, ${Math.round(this.color.b)})`;
+                ctx.fill();
+            }
+
+            update() {
+                // 제자리로 돌아가려는 힘 (스프링 효과)
+                const dx = this.originX - this.x;
+                const dy = this.originY - this.y;
+                
+                // 마우스와의 거리 및 방향 계산
+                const mdx = this.x - mouse.x;
+                const mdy = this.y - mouse.y;
+                const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+                
+                let forceX = 0;
+                let forceY = 0;
+
+                if (mDist < mouse.radius) {
+                    // 마우스에 가까울수록 강하게 밀어내기
+                    const force = (mouse.radius - mDist) / mouse.radius;
+                    const angle = Math.atan2(mdy, mdx);
+                    const strength = 12; // 밀어내는 최대 세기
+                    forceX = Math.cos(angle) * force * strength;
+                    forceY = Math.sin(angle) * force * strength;
+                }
+
+                // 가속도 적용
+                this.vx += dx * this.ease + forceX;
+                this.vy += dy * this.ease + forceY;
+
+                // 마찰력으로 속도 감쇠
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 제자리에서 멀어진 거리에 비례하여 색상을 검정 -> 컬러풀하게 그라데이션 전환
+                const distFromHome = Math.sqrt(dx * dx + dy * dy);
+                const colorThreshold = 25; // 25px 이상 멀어지면 완전한 targetColor로
+                const ratio = Math.min(distFromHome / colorThreshold, 1);
+
+                this.color.r = this.baseColor.r + (this.targetColor.r - this.baseColor.r) * ratio;
+                this.color.g = this.baseColor.g + (this.targetColor.g - this.baseColor.g) * ratio;
+                this.color.b = this.baseColor.b + (this.targetColor.b - this.baseColor.b) * ratio;
+            }
+        }
+
+        function initParticles() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+
+            if (width === 0 || height === 0) return;
+
+            // 화면 너비에 맞춘 반응형 폰트 크기 계산 (최소 60px, 최대 140px)
+            const fontSize = Math.max(60, Math.min(width * 0.1, 140));
+
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = 'black';
+            ctx.font = `bold ${fontSize}px 'Jua', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('목에 걸린 사탕', width / 2, height / 2);
+
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+            ctx.clearRect(0, 0, width, height);
+
+            particles = [];
+            
+            // 샘플링 간격을 3픽셀로 좁혀 폰트 경계면을 매우 촘촘하게 표현
+            const gap = 3;
+            for (let y = 0; y < height; y += gap) {
+                for (let x = 0; x < width; x += gap) {
+                    const index = (y * width + x) * 4;
+                    if (data[index + 3] > 128) {
+                        particles.push(new Particle(x, y));
+                    }
+                }
+            }
+        }
+
+        // PC 마우스 이벤트
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        window.addEventListener('mouseleave', () => {
+            mouse.x = -1000;
+            mouse.y = -1000;
+        });
+
+        // 모바일 터치 이벤트 지원
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            }
+        });
+
+        window.addEventListener('touchend', () => {
+            mouse.x = -1000;
+            mouse.y = -1000;
+        });
+
+        function animate() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, width, height);
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', initParticles);
+
+        // 구글 폰트가 완전히 로드된 후 입자를 초기화하여 정확한 텍스트 픽셀 검출
+        document.fonts.ready.then(() => {
+            initParticles();
+            animate();
+        });
+    </script>
+</body>
+
+</html>
