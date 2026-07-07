@@ -87,6 +87,27 @@
             box-shadow: 0 0 15px rgba(255, 75, 145, 0.5);
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
+
+        /* 페이퍼 모드(ver3)일 때 테마 변경 - 시크한 딥 차콜 배경 */
+        body.papers-theme {
+            background-color: #121212;
+        }
+
+        body.papers-theme .control-panel {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.08);
+        }
+
+        body.papers-theme .mode-btn {
+            color: #aaa;
+        }
+
+        body.papers-theme .mode-btn.active {
+            background: #ffffff;
+            color: #121212;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
     </style>
 </head>
 
@@ -95,6 +116,7 @@
     <div class="control-panel">
         <button id="btn-smooth" class="mode-btn active" onclick="switchMode('smooth')">ver1</button>
         <button id="btn-funky" class="mode-btn" onclick="switchMode('funky')">ver2</button>
+        <button id="btn-papers" class="mode-btn" onclick="switchMode('papers')">ver3</button>
     </div>
 
     <canvas id="canvas"></canvas>
@@ -104,16 +126,28 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         let width, height;
         let particles = [];
+        let paperCards = []; // ver3 3D 종이 조각들을 담을 배열
         
-        let currentMode = 'smooth'; // 'smooth' or 'funky'
+        let currentMode = 'smooth'; // 'smooth', 'funky', 'papers'
 
-        // 마우스 정보 (감지 반경을 상황에 맞게 조절)
+        // 마우스 정보 (감지 반경)
         const mouse = { x: -1000, y: -1000, radius: 85 };
         
         // 1. ver1용 사탕 색상
         const smoothColors = ['#FF4B91', '#FF7676', '#FFCD4B', '#FF8E8F', '#4ba3ff', '#45FFCA'];
         // 2. ver2용 일렉트릭 네온 색상
         const funkyColors = ['#FF007F', '#7B2CBF', '#00F5D4', '#FEE440', '#00BBF9', '#FF5400', '#FF0054'];
+
+        // 3. ver3용 종이 텍스트 문구 데이터베이스
+        const paperTexts = [
+            "주제를 이렇게 질문으로?",
+            "영상도 있고, 인터랙션도 있고, 사진도 있고, 그래픽도 있고...",
+            "이것저것 다 있습니다 뭐 이런 문장도 괜찮고..",
+            "목에 걸린 사탕이 사르르 녹아내리듯",
+            "3D 공간을 부유하는 수많은 생각과 질문들",
+            "인터랙티브 웹 디자인의 무한한 가능성",
+            "살랑살랑 떨어지는 종이 쪽지 ver3"
+        ];
 
         class Particle {
             constructor(tx, ty) {
@@ -130,7 +164,7 @@
                 // 모드에 따라 초기 입자 크기를 큼직하게 설정
                 this.radius = currentMode === 'smooth' ? 2.2 : 3.2;
                 
-                // 베이스 색상 - ver1은 검정, ver2는 흰색
+                // 베이스 색상
                 this.baseColor = currentMode === 'smooth' ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 };
                 
                 // ver1용 타겟 색상
@@ -310,13 +344,256 @@
             }
         }
 
+        // ver3 3D 종이 쪽지 클래스
+        class PaperCard {
+            constructor() {
+                this.reset(true);
+            }
+
+            reset(initRandomY = false) {
+                // 화면 가로 폭의 80% 영역 내에서 무작위 분산
+                this.x = (Math.random() - 0.5) * window.innerWidth * 0.8;
+                
+                // 최초 생성시에는 화면 전체에 흩뿌리고, 떨어져서 재활성될 때는 화면 위쪽 안보이는 곳에서 낙하 시작
+                this.y = initRandomY ? (Math.random() - 0.5) * window.innerHeight : -window.innerHeight / 2 - 150;
+                
+                // 3D 깊이값 (-200 ~ 200)
+                this.z = (Math.random() - 0.5) * 400;
+
+                // 속도 벡터 설정 (vy는 낙하 속도)
+                this.vy = 1.0 + Math.random() * 1.5;
+                this.vx = (Math.random() - 0.5) * 0.4;
+                this.vz = (Math.random() - 0.5) * 0.4;
+
+                // 3D 회전 각도 (라디안 단위)
+                this.rx = Math.random() * Math.PI * 2;
+                this.ry = Math.random() * Math.PI * 2;
+                this.rz = Math.random() * Math.PI * 2;
+
+                // 미세 회전 각속도
+                this.vrx = (Math.random() - 0.5) * 0.01;
+                this.vry = (Math.random() - 0.5) * 0.01;
+                this.vrz = (Math.random() - 0.5) * 0.012;
+
+                // 종이별 고유 진동 타임라인
+                this.time = Math.random() * 100;
+                this.timeSpeed = 0.015 + Math.random() * 0.025;
+
+                // 무작위 한글 문구 지정
+                this.text = paperTexts[Math.floor(Math.random() * paperTexts.length)];
+                
+                // 텍스트 너비에 맞춰 종이 가로 크기 유동적 계산 (패딩 +36px)
+                ctx.font = "bold 13px 'Jua', sans-serif";
+                const textWidth = ctx.measureText(this.text).width;
+                this.width = textWidth + 36;
+                this.height = 36;
+            }
+
+            update() {
+                this.time += this.timeSpeed;
+
+                // 바람에 날리는 3D 나풀거림 물리 모사 (Sine 함수 사용)
+                const flutterX = Math.sin(this.time * 1.5) * 0.5;
+                const flutterZ = Math.cos(this.time * 1.1) * 0.3;
+
+                this.x += this.vx + flutterX;
+                this.y += this.vy;
+                this.z += this.vz + flutterZ;
+
+                // 3D 회전 누적
+                this.rx += this.vrx + Math.sin(this.time) * 0.003;
+                this.ry += this.vry + Math.cos(this.time * 0.8) * 0.003;
+                this.rz += this.vrz;
+
+                // 마우스 풍압(Windforce)에 의한 3D 밀려남 인터랙션
+                const screenCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+                // 2D 마우스 좌표를 카메라 중심 기준의 대략적 3D 월드 좌표로 투영
+                const mWorldX = mouse.x - screenCenter.x;
+                const mWorldY = mouse.y - screenCenter.y;
+
+                const dx = this.x - mWorldX;
+                const dy = this.y - mWorldY;
+                const dz = this.z - 0; // 마우스는 깊이 z=0 평면에 머문다고 가정
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                const repulseRadius = 180;
+                if (dist < repulseRadius) {
+                    const force = (repulseRadius - dist) / repulseRadius;
+                    const angle = Math.atan2(dy, dx);
+                    
+                    // 마우스 커서 반대 방향으로 카드 튕겨내기
+                    this.vx += Math.cos(angle) * force * 2.2;
+                    this.vy += Math.sin(angle) * force * 1.5;
+                    this.vz += (this.z > 0 ? 1 : -1) * force * 2.0;
+
+                    // 스쳐 지나갈 때 3D 회전 각속도 증폭 (회전 팅글)
+                    this.vrx += (Math.random() - 0.5) * force * 0.04;
+                    this.vry += (Math.random() - 0.5) * force * 0.04;
+                    this.vrz += (Math.random() - 0.5) * force * 0.04;
+                }
+
+                // 공기 저항에 의한 감속
+                this.vx *= 0.95;
+                this.vz *= 0.95;
+                this.vrx *= 0.95;
+                this.vry *= 0.95;
+                this.vrz *= 0.95;
+
+                // 화면 하단 경계를 완전히 벗어나면 화면 상단 위로 재배치 (Looping)
+                if (this.y > window.innerHeight / 2 + 100) {
+                    this.reset(false);
+                }
+            }
+
+            draw() {
+                const perspective = 550;
+                const zOffset = 300; // 카메라로부터 기본 깊이격차
+                
+                const totalZ = this.z + zOffset;
+                if (totalZ <= 10) return; // 카메라 렌즈 뒷부분 카드는 생략
+
+                const scale = perspective / totalZ;
+
+                // 로컬 종이 모서리 점 정의
+                const w = this.width;
+                const h = this.height;
+                const points = [
+                    { x: -w/2, y: -h/2, z: 0 },
+                    { x:  w/2, y: -h/2, z: 0 },
+                    { x:  w/2, y:  h/2, z: 0 },
+                    { x: -w/2, y:  h/2, z: 0 }
+                ];
+
+                // 삼각함수 테이블
+                const cosX = Math.cos(this.rx), sinX = Math.sin(this.rx);
+                const cosY = Math.cos(this.ry), sinY = Math.sin(this.ry);
+                const cosZ = Math.cos(this.rz), sinZ = Math.sin(this.rz);
+
+                // 3D Matrix Rotation & Translation
+                const transformed = points.map(pt => {
+                    // 1. Z 회전
+                    let x1 = pt.x * cosZ - pt.y * sinZ;
+                    let y1 = pt.x * sinZ + pt.y * cosZ;
+                    let z1 = pt.z;
+
+                    // 2. Y 회전
+                    let x2 = x1 * cosY + z1 * sinY;
+                    let y2 = y1;
+                    let z2 = -x1 * sinY + z1 * cosY;
+
+                    // 3. X 회전
+                    let x3 = x2;
+                    let y3 = y2 * cosX - z2 * sinX;
+                    let z3 = y2 * sinX + z2 * cosX;
+
+                    // 월드 변환 및 중심 오프셋 이동
+                    const worldX = x3 + this.x;
+                    const worldY = y3 + this.y;
+                    const worldZ = z3 + this.z + zOffset;
+
+                    // 2D Perspective Projection
+                    const projScale = perspective / worldZ;
+                    return {
+                        x: window.innerWidth / 2 + worldX * projScale,
+                        y: window.innerHeight / 2 + worldY * projScale,
+                        z: worldZ
+                    };
+                });
+
+                // 앞뒷면 투영 부호 판정 (2D 외적 계산)
+                const v1 = { x: transformed[1].x - transformed[0].x, y: transformed[1].y - transformed[0].y };
+                const v2 = { x: transformed[2].x - transformed[1].x, y: transformed[2].y - transformed[1].y };
+                const normalZ = v1.x * v2.y - v1.y * v2.x;
+
+                // 조명 음영 가속도 연산
+                const light = 0.5 + 0.5 * (Math.abs(cosY) * Math.abs(cosX));
+
+                // 1. 3D 그림자(Shadow) 렌더링
+                ctx.save();
+                ctx.beginPath();
+                const shadowOffset = Math.max(6, 22 * scale); // Z축 깊이에 비례한 그림자 오프셋 거리
+                ctx.moveTo(transformed[0].x + shadowOffset * 0.4, transformed[0].y + shadowOffset);
+                for (let i = 1; i < 4; i++) {
+                    ctx.lineTo(transformed[i].x + shadowOffset * 0.4, transformed[i].y + shadowOffset);
+                }
+                ctx.closePath();
+                
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.38)';
+                ctx.shadowBlur = Math.min(35, Math.max(6, 20 * scale)); // 깊이에 따른 그림자 퍼짐(블러) 조절
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+                ctx.fill();
+                ctx.restore();
+
+                // 2. 종이 조각 본체 그리기
+                ctx.beginPath();
+                ctx.moveTo(transformed[0].x, transformed[0].y);
+                for (let i = 1; i < 4; i++) {
+                    ctx.lineTo(transformed[i].x, transformed[i].y);
+                }
+                ctx.closePath();
+
+                // 앞/뒷면 색상 설정 (뒷면은 옅은 쿨 그레이 종이)
+                let r, g, b;
+                if (normalZ > 0) {
+                    r = Math.floor(255 * light);
+                    g = Math.floor(255 * light);
+                    b = Math.floor(255 * light);
+                } else {
+                    r = Math.floor(228 * light);
+                    g = Math.floor(233 * light);
+                    b = Math.floor(240 * light);
+                }
+                
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.96)`;
+                ctx.fill();
+
+                // 모서리 얇은 경계선 추가로 현실감 묘사
+                ctx.strokeStyle = `rgba(0, 0, 0, ${0.05 * scale})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                // 3. 종이 위 텍스트 매핑 (중심 투영 기반 2D 아핀 변환 근사치 적용)
+                ctx.save();
+                const centerScreen = {
+                    x: (transformed[0].x + transformed[2].x) / 2,
+                    y: (transformed[0].y + transformed[2].y) / 2
+                };
+
+                ctx.translate(centerScreen.x, centerScreen.y);
+                ctx.scale(scale, scale);
+                ctx.rotate(this.rz);
+                
+                // 가로/세로 압축 변환 행렬 적용 (3D 회전 모사)
+                ctx.transform(cosY, sinX * sinY, 0, cosX, 0, 0);
+
+                ctx.fillStyle = `rgba(0, 0, 0, ${0.85 * Math.max(0.3, scale)})`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = "bold 13px 'Jua', sans-serif";
+                ctx.fillText(this.text, 0, 0);
+                
+                ctx.restore();
+            }
+        }
+
         function initParticles() {
             width = canvas.width = window.innerWidth;
             height = canvas.height = window.innerHeight;
 
             if (width === 0 || height === 0) return;
 
-            // 폰트 크기를 조금 더 큼직하게 조정 (최소 80px, 최대 160px)
+            // ver3 모드일 때: 종이 카드 리스트 초기화 및 파티클 생성 스킵
+            if (currentMode === 'papers') {
+                paperCards = [];
+                // 화면 크기에 비례해 알맞은 갯수의 종이 쪽지 생성 (보통 22~30개)
+                const count = Math.min(32, Math.floor((width * height) / 38000));
+                for (let i = 0; i < count; i++) {
+                    paperCards.push(new PaperCard());
+                }
+                return;
+            }
+
+            // ver1, ver2 모드일 때: 기존 글자 추출 및 파티클 초기화
             const fontSize = Math.max(80, Math.min(width * 0.12, 160));
 
             ctx.clearRect(0, 0, width, height);
@@ -331,9 +608,6 @@
             ctx.clearRect(0, 0, width, height);
 
             particles = [];
-            
-            // ver1은 gap=6 (입자간격 6px), ver2는 gap=8 (입자간격 8px)로 설정해 
-            // 제자리에 정렬되었을 때 입자들이 서로 겹치지 않고 일정 거리를 두도록 보장
             const gap = currentMode === 'smooth' ? 6 : 8;
             
             for (let y = 0; y < height; y += gap) {
@@ -353,12 +627,14 @@
             // 토글 버튼 클래스 제어
             document.getElementById('btn-smooth').classList.toggle('active', mode === 'smooth');
             document.getElementById('btn-funky').classList.toggle('active', mode === 'funky');
+            document.getElementById('btn-papers').classList.toggle('active', mode === 'papers');
             
-            // 테마 클래스 제어 (ver2일 땐 딥 스페이스 남색 백그라운드로 전환)
+            // 테마 클래스 제어 (ver2 남색, ver3 다크차콜)
+            document.body.className = ''; // 클래스 초기화
             if (mode === 'funky') {
                 document.body.classList.add('funky-theme');
-            } else {
-                document.body.classList.remove('funky-theme');
+            } else if (mode === 'papers') {
+                document.body.classList.add('papers-theme');
             }
             
             // 모드가 변경되면 그 모드의 gap과 특성에 맞춰 파티클을 재구성
@@ -427,18 +703,32 @@
         });
 
         function animate() {
-            // ver2일 때는 딥 스페이스 남색(#0b132b) 배경에 맞춰 지워주고, ver1은 화이트로 지움
-            if (currentMode === 'funky') {
-                ctx.fillStyle = '#0b132b';
-            } else {
-                ctx.fillStyle = 'white';
-            }
-            ctx.fillRect(0, 0, width, height);
+            if (currentMode === 'papers') {
+                // ver3: 딥 차콜 백그라운드 렌더링
+                ctx.fillStyle = '#121212';
+                ctx.fillRect(0, 0, width, height);
 
-            particles.forEach(p => {
-                p.update();
-                p.draw();
-            });
+                // 3D 뎁스 정렬 (Painter's Algorithm): 카메라와 거리가 먼(z값이 높은) 순서대로 렌더링하여 겹침 처리 구현
+                paperCards.sort((a, b) => b.z - a.z);
+
+                paperCards.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+            } else {
+                // ver1, ver2 렌더링
+                if (currentMode === 'funky') {
+                    ctx.fillStyle = '#0b132b';
+                } else {
+                    ctx.fillStyle = 'white';
+                }
+                ctx.fillRect(0, 0, width, height);
+
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                });
+            }
             requestAnimationFrame(animate);
         }
 
