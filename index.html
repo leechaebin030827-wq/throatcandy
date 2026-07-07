@@ -351,33 +351,34 @@
             }
 
             reset(initRandomY = false) {
-                // 화면 가로 폭의 80% 영역 내에서 무작위 분산
-                this.x = (Math.random() - 0.5) * window.innerWidth * 0.8;
+                // 화면 가로 폭의 90% 영역 내에서 무작위 분산
+                this.x = (Math.random() - 0.5) * window.innerWidth * 0.9;
                 
                 // 최초 생성시에는 화면 전체에 흩뿌리고, 떨어져서 재활성될 때는 화면 위쪽 안보이는 곳에서 낙하 시작
-                this.y = initRandomY ? (Math.random() - 0.5) * window.innerHeight : -window.innerHeight / 2 - 150;
+                this.y = initRandomY ? (Math.random() - 0.5) * window.innerHeight : -window.innerHeight / 2 - 100;
                 
-                // 3D 깊이값 (-200 ~ 200)
-                this.z = (Math.random() - 0.5) * 400;
+                // 3D 깊이값 (-250 ~ 250)
+                this.z = (Math.random() - 0.5) * 500;
 
-                // 속도 벡터 설정 (vy는 낙하 속도)
-                this.vy = 1.0 + Math.random() * 1.5;
-                this.vx = (Math.random() - 0.5) * 0.4;
-                this.vz = (Math.random() - 0.5) * 0.4;
+                // 하늘하늘한 속도 벡터 설정 (vy는 가벼운 낙하 속도)
+                this.vy = 0.6 + Math.random() * 0.8;
+                this.vx = (Math.random() - 0.5) * 0.2;
+                this.vz = (Math.random() - 0.5) * 0.2;
 
                 // 3D 회전 각도 (라디안 단위)
                 this.rx = Math.random() * Math.PI * 2;
                 this.ry = Math.random() * Math.PI * 2;
                 this.rz = Math.random() * Math.PI * 2;
 
-                // 미세 회전 각속도
-                this.vrx = (Math.random() - 0.5) * 0.01;
-                this.vry = (Math.random() - 0.5) * 0.01;
-                this.vrz = (Math.random() - 0.5) * 0.012;
+                // 나풀나풀 회전 각속도 (매우 가볍고 느린 기본 스핀)
+                this.vrx = 0;
+                this.vry = 0.005 + Math.random() * 0.01;
+                this.vrz = 0;
 
-                // 종이별 고유 진동 타임라인
+                // 종이별 고유 진동 타임라인 오프셋
                 this.time = Math.random() * 100;
-                this.timeSpeed = 0.015 + Math.random() * 0.025;
+                // 나풀거리는 펄럭임 주기 조율
+                this.timeSpeed = 0.02 + Math.random() * 0.02;
 
                 // 무작위 한글 문구 지정
                 this.text = paperTexts[Math.floor(Math.random() * paperTexts.length)];
@@ -386,75 +387,76 @@
                 ctx.font = "bold 13px 'Jua', sans-serif";
                 const textWidth = ctx.measureText(this.text).width;
                 this.width = textWidth + 36;
-                this.height = 36;
+                this.height = 34;
             }
 
             update() {
                 this.time += this.timeSpeed;
 
-                // 바람에 날리는 3D 나풀거림 물리 모사 (Sine 함수 사용)
-                const flutterX = Math.sin(this.time * 1.5) * 0.5;
-                const flutterZ = Math.cos(this.time * 1.1) * 0.3;
+                // 하늘하늘 흔들리는(Swaying) 모션 시뮬레이션
+                // Sine 파동에 따라 좌우(X)로 크게 나풀거리고, 전후(Z)로도 서서히 움직임
+                const swayForce = Math.sin(this.time) * 1.5;
+                const swayZ = Math.cos(this.time * 0.7) * 0.8;
 
-                this.x += this.vx + flutterX;
+                this.x += this.vx + swayForce;
                 this.y += this.vy;
-                this.z += this.vz + flutterZ;
+                this.z += this.vz + swayZ;
 
-                // 3D 회전 누적
-                this.rx += this.vrx + Math.sin(this.time) * 0.003;
-                this.ry += this.vry + Math.cos(this.time * 0.8) * 0.003;
-                this.rz += this.vrz;
+                // 하늘하늘 회전 모사
+                // Z축 회전(rz)은 좌우 흔들림에 싱크로나이즈하여 펄럭임 모사
+                this.rz = Math.sin(this.time) * 0.35;
+                // X축 회전(rx)은 앞뒤로 기우뚱하는 끄덕임 모사
+                this.rx = Math.cos(this.time * 0.8) * 0.25 + 0.6; // 약간 비스듬히 누워 떨어짐
+                // Y축 회전(ry)은 사르르 맴도는 가벼운 스핀
+                this.ry += this.vry;
 
-                // 마우스 풍압(Windforce)에 의한 3D 밀려남 인터랙션
+                // 마우스 풍압(Windforce)에 의한 둥실 떠오르는 인터랙션
                 const screenCenter = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-                // 2D 마우스 좌표를 카메라 중심 기준의 대략적 3D 월드 좌표로 투영
                 const mWorldX = mouse.x - screenCenter.x;
                 const mWorldY = mouse.y - screenCenter.y;
 
                 const dx = this.x - mWorldX;
                 const dy = this.y - mWorldY;
-                const dz = this.z - 0; // 마우스는 깊이 z=0 평면에 머문다고 가정
+                const dz = this.z - 0;
                 const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                const repulseRadius = 180;
+                const repulseRadius = 200;
                 if (dist < repulseRadius) {
                     const force = (repulseRadius - dist) / repulseRadius;
                     const angle = Math.atan2(dy, dx);
                     
-                    // 마우스 커서 반대 방향으로 카드 튕겨내기
-                    this.vx += Math.cos(angle) * force * 2.2;
-                    this.vy += Math.sin(angle) * force * 1.5;
-                    this.vz += (this.z > 0 ? 1 : -1) * force * 2.0;
+                    // 마우스가 다가오면 양옆으로 퍼지고, Y축 상향 풍력에 의해 둥실 떠오름 (vy 일시 감속)
+                    this.vx += Math.cos(angle) * force * 1.8;
+                    // 가벼운 가중치로 위로 둥실 뜨게 만듦 (낙하 역행)
+                    this.vy -= force * 0.5;
+                    this.vz += (this.z > 0 ? 1 : -1) * force * 1.5;
 
-                    // 스쳐 지나갈 때 3D 회전 각속도 증폭 (회전 팅글)
-                    this.vrx += (Math.random() - 0.5) * force * 0.04;
-                    this.vry += (Math.random() - 0.5) * force * 0.04;
-                    this.vrz += (Math.random() - 0.5) * force * 0.04;
+                    // 바람에 의한 회전 진동 가중치 가산
+                    this.ry += (Math.random() - 0.5) * force * 0.05;
                 }
 
-                // 공기 저항에 의한 감속
-                this.vx *= 0.95;
-                this.vz *= 0.95;
-                this.vrx *= 0.95;
-                this.vry *= 0.95;
-                this.vrz *= 0.95;
+                // 속도 상한치 및 공기 저항 감속
+                this.vx *= 0.94;
+                this.vz *= 0.94;
+                // vy는 기본 낙하 속도로 서서히 수렴 (터미널 벨로시티 복원)
+                const baseVy = 0.6 + (this.time % 1) * 0.5;
+                this.vy += (baseVy - this.vy) * 0.08;
 
                 // 화면 하단 경계를 완전히 벗어나면 화면 상단 위로 재배치 (Looping)
-                if (this.y > window.innerHeight / 2 + 100) {
+                if (this.y > window.innerHeight / 2 + 150) {
                     this.reset(false);
                 }
             }
 
             draw() {
                 const perspective = 550;
-                const zOffset = 300; // 카메라로부터 기본 깊이격차
+                const zOffset = 300;
                 
                 const totalZ = this.z + zOffset;
-                if (totalZ <= 10) return; // 카메라 렌즈 뒷부분 카드는 생략
+                if (totalZ <= 10) return;
 
                 const scale = perspective / totalZ;
 
-                // 로컬 종이 모서리 점 정의
                 const w = this.width;
                 const h = this.height;
                 const points = [
@@ -464,34 +466,27 @@
                     { x: -w/2, y:  h/2, z: 0 }
                 ];
 
-                // 삼각함수 테이블
                 const cosX = Math.cos(this.rx), sinX = Math.sin(this.rx);
                 const cosY = Math.cos(this.ry), sinY = Math.sin(this.ry);
                 const cosZ = Math.cos(this.rz), sinZ = Math.sin(this.rz);
 
-                // 3D Matrix Rotation & Translation
                 const transformed = points.map(pt => {
-                    // 1. Z 회전
                     let x1 = pt.x * cosZ - pt.y * sinZ;
                     let y1 = pt.x * sinZ + pt.y * cosZ;
                     let z1 = pt.z;
 
-                    // 2. Y 회전
                     let x2 = x1 * cosY + z1 * sinY;
                     let y2 = y1;
                     let z2 = -x1 * sinY + z1 * cosY;
 
-                    // 3. X 회전
                     let x3 = x2;
                     let y3 = y2 * cosX - z2 * sinX;
                     let z3 = y2 * sinX + z2 * cosX;
 
-                    // 월드 변환 및 중심 오프셋 이동
                     const worldX = x3 + this.x;
                     const worldY = y3 + this.y;
                     const worldZ = z3 + this.z + zOffset;
 
-                    // 2D Perspective Projection
                     const projScale = perspective / worldZ;
                     return {
                         x: window.innerWidth / 2 + worldX * projScale,
@@ -505,26 +500,25 @@
                 const v2 = { x: transformed[2].x - transformed[1].x, y: transformed[2].y - transformed[1].y };
                 const normalZ = v1.x * v2.y - v1.y * v2.x;
 
-                // 조명 음영 가속도 연산
-                const light = 0.5 + 0.5 * (Math.abs(cosY) * Math.abs(cosX));
+                const light = 0.55 + 0.45 * (Math.abs(cosY) * Math.abs(cosX));
 
-                // 1. 3D 그림자(Shadow) 렌더링
+                // 1. 3D 그림자(Shadow)
                 ctx.save();
                 ctx.beginPath();
-                const shadowOffset = Math.max(6, 22 * scale); // Z축 깊이에 비례한 그림자 오프셋 거리
-                ctx.moveTo(transformed[0].x + shadowOffset * 0.4, transformed[0].y + shadowOffset);
+                const shadowOffset = Math.max(5, 20 * scale);
+                ctx.moveTo(transformed[0].x + shadowOffset * 0.3, transformed[0].y + shadowOffset);
                 for (let i = 1; i < 4; i++) {
-                    ctx.lineTo(transformed[i].x + shadowOffset * 0.4, transformed[i].y + shadowOffset);
+                    ctx.lineTo(transformed[i].x + shadowOffset * 0.3, transformed[i].y + shadowOffset);
                 }
                 ctx.closePath();
                 
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.38)';
-                ctx.shadowBlur = Math.min(35, Math.max(6, 20 * scale)); // 깊이에 따른 그림자 퍼짐(블러) 조절
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+                ctx.shadowBlur = Math.min(30, Math.max(5, 18 * scale));
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
                 ctx.fill();
                 ctx.restore();
 
-                // 2. 종이 조각 본체 그리기
+                // 2. 종이 본체
                 ctx.beginPath();
                 ctx.moveTo(transformed[0].x, transformed[0].y);
                 for (let i = 1; i < 4; i++) {
@@ -532,41 +526,49 @@
                 }
                 ctx.closePath();
 
-                // 앞/뒷면 색상 설정 (뒷면은 옅은 쿨 그레이 종이)
                 let r, g, b;
                 if (normalZ > 0) {
                     r = Math.floor(255 * light);
                     g = Math.floor(255 * light);
                     b = Math.floor(255 * light);
                 } else {
-                    r = Math.floor(228 * light);
-                    g = Math.floor(233 * light);
-                    b = Math.floor(240 * light);
+                    r = Math.floor(230 * light);
+                    g = Math.floor(235 * light);
+                    b = Math.floor(242 * light);
                 }
                 
                 ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.96)`;
                 ctx.fill();
 
-                // 모서리 얇은 경계선 추가로 현실감 묘사
-                ctx.strokeStyle = `rgba(0, 0, 0, ${0.05 * scale})`;
+                ctx.strokeStyle = `rgba(0, 0, 0, ${0.06 * scale})`;
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
-                // 3. 종이 위 텍스트 매핑 (중심 투영 기반 2D 아핀 변환 근사치 적용)
-                ctx.save();
-                const centerScreen = {
-                    x: (transformed[0].x + transformed[2].x) / 2,
-                    y: (transformed[0].y + transformed[2].y) / 2
-                };
+                // 3. 고정밀 아핀 매핑(Affine Mapping)을 활용한 텍스트 렌더링
+                // 모서리 점을 활용해 2D 캔버스 트랜스폼 계수를 수학적으로 정밀하게 추출
+                const x0 = transformed[0].x, y0 = transformed[0].y;
+                const x1 = transformed[1].x, y1 = transformed[1].y;
+                const x3 = transformed[3].x, y3 = transformed[3].y;
 
-                ctx.translate(centerScreen.x, centerScreen.y);
-                ctx.scale(scale, scale);
-                ctx.rotate(this.rz);
+                const a = (x1 - x0) / w;
+                const b = (y1 - y0) / w;
+                const c = (x3 - x0) / h;
+                const d = (y3 - y0) / h;
                 
-                // 가로/세로 압축 변환 행렬 적용 (3D 회전 모사)
-                ctx.transform(cosY, sinX * sinY, 0, cosX, 0, 0);
+                // 카드의 물리적 중앙 좌표를 행렬의 평행이동 요소(e, f)로 지정
+                const e = (transformed[0].x + transformed[1].x + transformed[2].x + transformed[3].x) / 4;
+                const f = (transformed[0].y + transformed[1].y + transformed[2].y + transformed[3].y) / 4;
 
-                ctx.fillStyle = `rgba(0, 0, 0, ${0.85 * Math.max(0.3, scale)})`;
+                ctx.save();
+                // 계산된 아핀 매핑 행렬 투영
+                ctx.transform(a, b, c, d, e, f);
+                
+                // 뒤집혔을 때(뒷면) 거울 반전을 통해 글씨를 항상 정방향으로 읽을 수 있도록 지원
+                if (normalZ <= 0) {
+                    ctx.scale(-1, 1);
+                }
+
+                ctx.fillStyle = `rgba(0, 0, 0, ${0.85 * Math.max(0.4, scale)})`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.font = "bold 13px 'Jua', sans-serif";
