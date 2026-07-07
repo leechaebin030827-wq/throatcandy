@@ -66,9 +66,9 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
-        /* 펑키 모드일 때 테마 변경 */
+        /* 펑키 모드(ver2)일 때 테마 변경 - 남색(Navy) 배경 */
         body.funky-theme {
-            background-color: #0b090a;
+            background-color: #0b132b;
         }
 
         body.funky-theme .control-panel {
@@ -93,8 +93,8 @@
 <body>
 
     <div class="control-panel">
-        <button id="btn-smooth" class="mode-btn active" onclick="switchMode('smooth')">부드러운 사탕</button>
-        <button id="btn-funky" class="mode-btn" onclick="switchMode('funky')">펑키한 사탕</button>
+        <button id="btn-smooth" class="mode-btn active" onclick="switchMode('smooth')">ver1</button>
+        <button id="btn-funky" class="mode-btn" onclick="switchMode('funky')">ver2</button>
     </div>
 
     <canvas id="canvas"></canvas>
@@ -110,9 +110,9 @@
         // 마우스 정보 (감지 반경을 상황에 맞게 조절)
         const mouse = { x: -1000, y: -1000, radius: 80 };
         
-        // 1. 부드러운 모드용 사탕 색상
+        // 1. ver1용 사탕 색상
         const smoothColors = ['#FF4B91', '#FF7676', '#FFCD4B', '#FF8E8F', '#4ba3ff', '#45FFCA'];
-        // 2. 펑키 모드용 일렉트릭 네온 색상
+        // 2. ver2용 일렉트릭 네온 색상
         const funkyColors = ['#FF007F', '#7B2CBF', '#00F5D4', '#FEE440', '#00BBF9', '#FF5400', '#FF0054'];
 
         class Particle {
@@ -131,11 +131,11 @@
                 // 베이스 색상 (검정)
                 this.baseColor = { r: 0, g: 0, b: 0 };
                 
-                // 부드러운 모드 타겟 색상
+                // ver1용 타겟 색상
                 const sColor = smoothColors[Math.floor(Math.random() * smoothColors.length)];
                 this.smoothTargetColor = this.hexToRgb(sColor);
 
-                // 펑키 모드 타겟 색상
+                // ver2용 타겟 색상
                 const fColor = funkyColors[Math.floor(Math.random() * funkyColors.length)];
                 this.funkyTargetColor = this.hexToRgb(fColor);
                 
@@ -158,16 +158,16 @@
             draw() {
                 ctx.beginPath();
                 
-                // 펑키 모드이고 빠르게 움직일 때, 속도 방향으로 늘어나는(Motion Stretch) 시각적 쾌감 추가
+                // ver2 모드이고 빠르게 움직일 때, 속도 방향으로 늘어나는(Motion Stretch) 시각적 쾌감 추가
                 if (currentMode === 'funky') {
                     const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
                     if (speed > 1.5) {
                         ctx.save();
                         ctx.translate(this.x, this.y);
                         ctx.rotate(Math.atan2(this.vy, this.vx));
-                        // 속도에 비례해 길어지고, 얇아지는 타원 렌더링
-                        const stretchW = this.radius + speed * 0.45;
-                        const stretchH = Math.max(0.5, this.radius - speed * 0.08);
+                        // 입자가 커진 만큼 스트레칭 타원 크기도 비례해서 키우고 찌그러짐 하한선을 0.8로 조정
+                        const stretchW = this.radius + speed * 0.55;
+                        const stretchH = Math.max(0.8, this.radius - speed * 0.12);
                         ctx.ellipse(0, 0, stretchW, stretchH, 0, 0, Math.PI * 2);
                         ctx.fillStyle = `rgb(${Math.round(this.color.r)}, ${Math.round(this.color.g)}, ${Math.round(this.color.b)})`;
                         ctx.fill();
@@ -176,7 +176,7 @@
                     }
                 }
                 
-                // 부드러운 모드 및 정지 상태는 기본 원형 그리기
+                // ver1 및 정지 상태는 기본 원형 그리기
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = `rgb(${Math.round(this.color.r)}, ${Math.round(this.color.g)}, ${Math.round(this.color.b)})`;
                 ctx.fill();
@@ -194,9 +194,12 @@
                 let forceY = 0;
 
                 if (currentMode === 'smooth') {
-                    // 1. 부드러운 모드: 마찰과 탄성을 부드럽게 유지
+                    // 1. ver1: 마찰과 탄성을 부드럽게 유지, 입자 반지름 1.5로 복원
                     this.friction = 0.88;
                     this.ease = 0.08;
+                    
+                    const r = 1.5;
+                    this.radius += (r - this.radius) * 0.1;
                     
                     if (mDist < mouse.radius) {
                         const force = (mouse.radius - mDist) / mouse.radius;
@@ -206,20 +209,28 @@
                         forceY = Math.sin(angle) * force * strength;
                     }
                 } else {
-                    // 2. 펑키 모드: 마찰력을 낮춰 오랫동안 튕겨 다니고, 복원 속도를 빠르게 하여 더 쫀득하게 복귀
+                    // 2. ver2 (funky): 마찰력을 낮춰 오랫동안 튕겨 다니고, 복원 속도를 빠르게 하여 더 쫀득하게 복귀
                     this.friction = 0.94; // 통통 튀는 미끄러짐
                     this.ease = 0.12;     // 탱글거리는 복원
 
                     if (mDist < mouse.radius) {
                         const force = (mouse.radius - mDist) / mouse.radius;
                         const angle = Math.atan2(mdy, mdx);
-                        // 폭발적으로 퍼지게 2.5배 강한 힘 적용
+                        // 폭발적으로 퍼지게 강력한 힘 적용
                         const strength = 28;
                         forceX = Math.cos(angle) * force * strength;
                         forceY = Math.sin(angle) * force * strength;
+                        
+                        // 호버 시 입자 크기가 더욱 확실히 도드라지도록 키움 (3.5 ~ 6.5px)
+                        const targetR = 3.5 + force * 3.0;
+                        this.radius += (targetR - this.radius) * 0.25;
+                    } else {
+                        // 호버 안 된 일반 상태에서도 입자 크기를 2.2로 큼직하게 유지
+                        const r = 2.2;
+                        this.radius += (r - this.radius) * 0.15;
                     }
                     
-                    // 펑키 모드일 때는 제자리 근처에서 미세한 랜덤 진동(Jitter)을 주어 사이다 기포처럼 들끓는 느낌 연출
+                    // ver2일 때는 제자리 근처에서 미세한 랜덤 진동(Jitter)을 주어 사이다 기포처럼 들끓는 느낌 연출
                     const distFromHome = Math.sqrt(dx * dx + dy * dy);
                     if (distFromHome < 2) {
                         forceX += (Math.random() - 0.5) * 0.6;
@@ -241,7 +252,7 @@
                 const distFromHome = Math.sqrt(dx * dx + dy * dy);
                 
                 if (currentMode === 'smooth') {
-                    // 부드러운 모드는 검은색에서 부드럽게 캔디색으로 그라데이션
+                    // ver1은 검은색에서 부드럽게 캔디색으로 그라데이션
                     const colorThreshold = 25;
                     const ratio = Math.min(distFromHome / colorThreshold, 1);
                     const target = this.smoothTargetColor;
@@ -249,7 +260,7 @@
                     this.color.g = this.baseColor.g + (target.g - this.baseColor.g) * ratio;
                     this.color.b = this.baseColor.b + (target.b - this.baseColor.b) * ratio;
                 } else {
-                    // 펑키 모드는 평소에도 살짝 들썩이는 색감이 있도록 베이스 컬러에 미량의 혼합 부여
+                    // ver2는 평소에도 살짝 들썩이는 색감이 있도록 베이스 컬러에 미량의 혼합 부여
                     // 그리고 흩어질 때 훨씬 화려한 네온 컬러가 번쩍이며 퍼지게 함
                     const colorThreshold = 40;
                     const ratio = Math.min(distFromHome / colorThreshold, 1);
@@ -305,12 +316,12 @@
             document.getElementById('btn-smooth').classList.toggle('active', mode === 'smooth');
             document.getElementById('btn-funky').classList.toggle('active', mode === 'funky');
             
-            // 테마 클래스 제어 (펑키 모드일 땐 시크한 다크 백그라운드로 전환)
+            // 테마 클래스 제어 (ver2일 땐 딥 스페이스 남색 백그라운드로 전환)
             if (mode === 'funky') {
                 document.body.classList.add('funky-theme');
-                // 펑키 모드일 때는 입자 기본 베이스 색을 다크 배경에 맞춰 네온으로 미세하게 변경
+                // ver2일 때는 입자 기본 베이스 색을 남색 배경에 맞춰 네온으로 미세하게 변경
                 particles.forEach(p => {
-                    p.baseColor = { r: 20, g: 20, b: 20 };
+                    p.baseColor = { r: 25, g: 25, b: 35 };
                 });
             } else {
                 document.body.classList.remove('funky-theme');
@@ -320,7 +331,7 @@
             }
         }
 
-        // 마우스 클릭 시 충격파(Candy Blast) 효과 추가 (펑키 모드 전용)
+        // 마우스 클릭 시 충격파(Candy Blast) 효과 추가 (ver2 전용)
         function createBlast(cx, cy) {
             particles.forEach(p => {
                 const dx = p.x - cx;
@@ -350,7 +361,7 @@
             mouse.y = -1000;
         });
 
-        // 펑키 모드 마우스 클릭 폭발
+        // ver2 마우스 클릭 폭발
         window.addEventListener('mousedown', (e) => {
             if (currentMode === 'funky') {
                 createBlast(e.clientX, e.clientY);
@@ -370,7 +381,7 @@
             mouse.y = -1000;
         });
 
-        // 펑키 모드 모바일 터치 폭발
+        // ver2 모바일 터치 폭발
         window.addEventListener('touchstart', (e) => {
             if (e.touches.length > 0) {
                 mouse.x = e.touches[0].clientX;
@@ -382,9 +393,9 @@
         });
 
         function animate() {
-            // 펑키 모드일 때는 다크 테마 배경에 맞춰 지워주고, 부드러운 모드는 화이트로 지움
+            // ver2일 때는 딥 스페이스 남색(#0b132b) 배경에 맞춰 지워주고, ver1은 화이트로 지움
             if (currentMode === 'funky') {
-                ctx.fillStyle = '#0b090a';
+                ctx.fillStyle = '#0b132b';
             } else {
                 ctx.fillStyle = 'white';
             }
