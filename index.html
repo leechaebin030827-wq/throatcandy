@@ -130,8 +130,8 @@
                 // 모드에 따라 초기 입자 크기를 큼직하게 설정
                 this.radius = currentMode === 'smooth' ? 2.2 : 3.2;
                 
-                // 베이스 색상
-                this.baseColor = currentMode === 'smooth' ? { r: 0, g: 0, b: 0 } : { r: 25, g: 25, b: 35 };
+                // 베이스 색상 - ver1은 검정, ver2는 흰색
+                this.baseColor = currentMode === 'smooth' ? { r: 0, g: 0, b: 0 } : { r: 255, g: 255, b: 255 };
                 
                 // ver1용 타겟 색상
                 const sColor = smoothColors[Math.floor(Math.random() * smoothColors.length)];
