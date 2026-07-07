@@ -108,7 +108,7 @@
         let currentMode = 'smooth'; // 'smooth' or 'funky'
 
         // 마우스 정보 (감지 반경을 상황에 맞게 조절)
-        const mouse = { x: -1000, y: -1000, radius: 80 };
+        const mouse = { x: -1000, y: -1000, radius: 85 };
         
         // 1. ver1용 사탕 색상
         const smoothColors = ['#FF4B91', '#FF7676', '#FFCD4B', '#FF8E8F', '#4ba3ff', '#45FFCA'];
@@ -126,10 +126,12 @@
                 
                 this.vx = 0;
                 this.vy = 0;
-                this.radius = 1.5;
                 
-                // 베이스 색상 (검정)
-                this.baseColor = { r: 0, g: 0, b: 0 };
+                // 모드에 따라 초기 입자 크기를 큼직하게 설정
+                this.radius = currentMode === 'smooth' ? 2.2 : 3.2;
+                
+                // 베이스 색상
+                this.baseColor = currentMode === 'smooth' ? { r: 0, g: 0, b: 0 } : { r: 25, g: 25, b: 35 };
                 
                 // ver1용 타겟 색상
                 const sColor = smoothColors[Math.floor(Math.random() * smoothColors.length)];
@@ -139,7 +141,7 @@
                 const fColor = funkyColors[Math.floor(Math.random() * funkyColors.length)];
                 this.funkyTargetColor = this.hexToRgb(fColor);
                 
-                this.color = { r: 0, g: 0, b: 0 };
+                this.color = { ...this.baseColor };
                 
                 // 물리 계수
                 this.friction = 0.88;
@@ -165,9 +167,9 @@
                         ctx.save();
                         ctx.translate(this.x, this.y);
                         ctx.rotate(Math.atan2(this.vy, this.vx));
-                        // 입자가 커진 만큼 스트레칭 타원 크기도 비례해서 키우고 찌그러짐 하한선을 0.8로 조정
+                        // 입자가 커진 만큼 스트레칭 타원 크기도 비례해서 키우고 찌그러짐 하한선을 1.0으로 조정
                         const stretchW = this.radius + speed * 0.55;
-                        const stretchH = Math.max(0.8, this.radius - speed * 0.12);
+                        const stretchH = Math.max(1.0, this.radius - speed * 0.12);
                         ctx.ellipse(0, 0, stretchW, stretchH, 0, 0, Math.PI * 2);
                         ctx.fillStyle = `rgb(${Math.round(this.color.r)}, ${Math.round(this.color.g)}, ${Math.round(this.color.b)})`;
                         ctx.fill();
@@ -182,6 +184,33 @@
                 ctx.fill();
             }
 
+            // 입자 간 상호 겹침 방지 (Collision Resolution)
+            resolveCollisions() {
+                // 입자들의 충돌 반경(안전거리) 설정: 입자 지름의 약 1.05배 수준으로 겹치지 않게 조절
+                const minSafetyDist = this.radius * 2.1;
+                
+                for (let i = 0; i < particles.length; i++) {
+                    const other = particles[i];
+                    if (other === this) continue;
+                    
+                    const dx = this.x - other.x;
+                    const dy = this.y - other.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    
+                    // 안전거리 이내로 겹칠 때 서로 밀어내기
+                    if (dist < minSafetyDist && dist > 0.1) {
+                        const overlap = minSafetyDist - dist;
+                        const angle = Math.atan2(dy, dx);
+                        
+                        // 밀어내는 강도 (ver2에서 좀 더 통통 튀게 설정)
+                        const pushStrength = currentMode === 'smooth' ? 0.15 : 0.25;
+                        
+                        this.vx += Math.cos(angle) * overlap * pushStrength;
+                        this.vy += Math.sin(angle) * overlap * pushStrength;
+                    }
+                }
+            }
+
             update() {
                 const dx = this.originX - this.x;
                 const dy = this.originY - this.y;
@@ -194,12 +223,9 @@
                 let forceY = 0;
 
                 if (currentMode === 'smooth') {
-                    // 1. ver1: 마찰과 탄성을 부드럽게 유지, 입자 반지름 1.5로 복원
-                    this.friction = 0.88;
+                    // 1. ver1: 마찰과 탄성을 부드럽게 유지, 입자 반지름 2.2로 크기 설정, 호버 시 살짝 팽창
+                    this.friction = 0.86; // 겹침 방지 탄성 반발을 흡수하기 위해 마찰력 약간 높임
                     this.ease = 0.08;
-                    
-                    const r = 1.5;
-                    this.radius += (r - this.radius) * 0.1;
                     
                     if (mDist < mouse.radius) {
                         const force = (mouse.radius - mDist) / mouse.radius;
@@ -207,12 +233,19 @@
                         const strength = 12;
                         forceX = Math.cos(angle) * force * strength;
                         forceY = Math.sin(angle) * force * strength;
+                        
+                        const targetR = 2.8;
+                        this.radius += (targetR - this.radius) * 0.1;
+                    } else {
+                        const r = 2.2;
+                        this.radius += (r - this.radius) * 0.1;
                     }
                 } else {
                     // 2. ver2 (funky): 마찰력을 낮춰 오랫동안 튕겨 다니고, 복원 속도를 빠르게 하여 더 쫀득하게 복귀
-                    this.friction = 0.94; // 통통 튀는 미끄러짐
-                    this.ease = 0.12;     // 탱글거리는 복원
+                    this.friction = 0.92;
+                    this.ease = 0.12;
 
+                    // ver2 입자 기본 반지름 3.2, 호버 시 큼직하게 팽창
                     if (mDist < mouse.radius) {
                         const force = (mouse.radius - mDist) / mouse.radius;
                         const angle = Math.atan2(mdy, mdx);
@@ -221,12 +254,12 @@
                         forceX = Math.cos(angle) * force * strength;
                         forceY = Math.sin(angle) * force * strength;
                         
-                        // 호버 시 입자 크기가 더욱 확실히 도드라지도록 키움 (3.5 ~ 6.5px)
+                        // 호버 시 입자 크기가 더욱 커짐 (3.5 ~ 6.5px)
                         const targetR = 3.5 + force * 3.0;
                         this.radius += (targetR - this.radius) * 0.25;
                     } else {
-                        // 호버 안 된 일반 상태에서도 입자 크기를 2.2로 큼직하게 유지
-                        const r = 2.2;
+                        // 호버 안 된 일반 상태에서도 입자 크기를 3.2로 크게 유지
+                        const r = 3.2;
                         this.radius += (r - this.radius) * 0.15;
                     }
                     
@@ -237,6 +270,9 @@
                         forceY += (Math.random() - 0.5) * 0.6;
                     }
                 }
+
+                // 파티클 간의 겹침 방지 처리 적용
+                this.resolveCollisions();
 
                 // 가속도 누적 및 물리 연산
                 this.vx += dx * this.ease + forceX;
@@ -261,7 +297,6 @@
                     this.color.b = this.baseColor.b + (target.b - this.baseColor.b) * ratio;
                 } else {
                     // ver2는 평소에도 살짝 들썩이는 색감이 있도록 베이스 컬러에 미량의 혼합 부여
-                    // 그리고 흩어질 때 훨씬 화려한 네온 컬러가 번쩍이며 퍼지게 함
                     const colorThreshold = 40;
                     const ratio = Math.min(distFromHome / colorThreshold, 1);
                     const baseMix = 0.08;
@@ -281,7 +316,8 @@
 
             if (width === 0 || height === 0) return;
 
-            const fontSize = Math.max(60, Math.min(width * 0.1, 140));
+            // 폰트 크기를 조금 더 큼직하게 조정 (최소 80px, 최대 160px)
+            const fontSize = Math.max(80, Math.min(width * 0.12, 160));
 
             ctx.clearRect(0, 0, width, height);
             ctx.fillStyle = 'black';
@@ -296,8 +332,10 @@
 
             particles = [];
             
-            // 촘촘한 밀도 (gap = 3)
-            const gap = 3;
+            // ver1은 gap=6 (입자간격 6px), ver2는 gap=8 (입자간격 8px)로 설정해 
+            // 제자리에 정렬되었을 때 입자들이 서로 겹치지 않고 일정 거리를 두도록 보장
+            const gap = currentMode === 'smooth' ? 6 : 8;
+            
             for (let y = 0; y < height; y += gap) {
                 for (let x = 0; x < width; x += gap) {
                     const index = (y * width + x) * 4;
@@ -319,16 +357,12 @@
             // 테마 클래스 제어 (ver2일 땐 딥 스페이스 남색 백그라운드로 전환)
             if (mode === 'funky') {
                 document.body.classList.add('funky-theme');
-                // ver2일 때는 입자 기본 베이스 색을 남색 배경에 맞춰 네온으로 미세하게 변경
-                particles.forEach(p => {
-                    p.baseColor = { r: 25, g: 25, b: 35 };
-                });
             } else {
                 document.body.classList.remove('funky-theme');
-                particles.forEach(p => {
-                    p.baseColor = { r: 0, g: 0, b: 0 };
-                });
             }
+            
+            // 모드가 변경되면 그 모드의 gap과 특성에 맞춰 파티클을 재구성
+            initParticles();
         }
 
         // 마우스 클릭 시 충격파(Candy Blast) 효과 추가 (ver2 전용)
